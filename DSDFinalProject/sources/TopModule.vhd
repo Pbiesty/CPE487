@@ -6,7 +6,10 @@ entity TopModule is
         PS2Clk, PS2Data : in STD_LOGIC;
         Hsync, Vsync : out STD_LOGIC;
         vgaRed, vgaGreen, vgaBlue : out STD_LOGIC_VECTOR(3 downto 0);
-        sw : in STD_LOGIC_VECTOR ( 11 downto 0));
+        sw : in STD_LOGIC_VECTOR ( 11 downto 0);
+        SEG7_anode : OUT STD_LOGIC_VECTOR (3 DOWNTO 0); -- anodes of four 7-seg displays
+        SEG7_seg : OUT STD_LOGIC_VECTOR (6 DOWNTO 0) -- common segments of 7-seg displays
+        );
 end TopModule;
 
 architecture Behavioral of TopModule is
@@ -27,7 +30,8 @@ component VideoMemory
 --        difficulty : in std_logic;
         red, green, blue : out std_logic_vector( 3 downto 0);
         sw : in STD_LOGIC_VECTOR (11 downto 0);
-        input : in STD_LOGIC_VECTOR (7 downto 0));
+        input : in STD_LOGIC_VECTOR (7 downto 0);
+        hits : OUT STD_LOGIC_VECTOR (15 DOWNTO 0));
 end component;
 
 component ps2_keyboard
@@ -42,6 +46,19 @@ GENERIC(
     ps2_code     : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)); --code received from PS/2
 END component;
 
+ COMPONENT leddec16 IS
+        PORT (
+            dig : IN STD_LOGIC_VECTOR (1 DOWNTO 0);
+            data : IN STD_LOGIC_VECTOR (15 DOWNTO 0);
+            anode : OUT STD_LOGIC_VECTOR (3 DOWNTO 0);
+            seg : OUT STD_LOGIC_VECTOR (6 DOWNTO 0)
+        );
+    END COMPONENT;    
+
+signal display1 : std_logic_vector (15 DOWNTO 0); -- value to be displayed
+signal led_mpx : STD_LOGIC_VECTOR (1 DOWNTO 0); -- 7-seg multiplexing clock
+SIGNAL cnt : std_logic_vector(20 DOWNTO 0); -- counter to generate timing signals
+
 signal red, green, blue : std_logic_vector( 3 downto 0) := "0000";
 signal display :std_logic := '0';
 signal pixel_x, pixel_y : integer := -1;
@@ -50,6 +67,12 @@ signal temp1 : std_logic_vector(7 DOWNTO 0) := "00000000";
 
 begin
     pixel_driver : VGAPixelDriver port map(  clk => clk, red_in => red, blue_in => blue, green_in => green, Hsync => Hsync, Vsync => Vsync, display_o => display, pixel_x => pixel_x, pixel_y => pixel_y, refresh => temp, red => vgaRed, blue => vgaBlue, green => vgaGreen);
-    video_memory : VideoMemory port map( display => display, pixel_x => pixel_x, pixel_y => pixel_y, refresh => temp, red => red, green => green, blue => blue, sw => sw, input => temp1);
+    video_memory : VideoMemory port map( display => display, pixel_x => pixel_x, pixel_y => pixel_y, refresh => temp, red => red, green => green, blue => blue, sw => sw, input => temp1, hits => display1);
     keyboard_driver : ps2_keyboard port map( clk => clk, PS2Clk => PS2Clk, PS2Data => PS2Data, ps2_code => temp1);
+
+    led1 : leddec16
+    PORT MAP(
+      dig => led_mpx, data => display1, 
+      anode => SEG7_anode, seg => SEG7_seg
+    );
 end Behavioral;
